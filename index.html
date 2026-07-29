@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Cibele · CI Intercâmbio</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-avatar">C</div>
+        <div class="brand-text">
+          <h1>Cibele</h1>
+          <span class="brand-subtitle">CI Intercâmbio</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="btn-open-prompt" class="icon-btn" title="Editar prompt do agente" aria-label="Editar prompt do agente">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        </button>
+        <button id="btn-reset" class="icon-btn" title="Reiniciar conversa" aria-label="Reiniciar conversa">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M12 5V2L8 6l4 4V7c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 13c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 8.74A7.93 7.93 0 0 0 4 13c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="chat" id="chat">
+      <div class="chat-scroll" id="chat-scroll"></div>
+    </main>
+
+    <form class="composer" id="composer">
+      <textarea id="input" placeholder="Escreva uma mensagem..." rows="1" autocomplete="off"></textarea>
+      <button type="submit" id="btn-send" class="send-btn" aria-label="Enviar mensagem">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+      </button>
+    </form>
+  </div>
+
+  <div class="overlay" id="prompt-overlay">
+    <div class="prompt-panel">
+      <div class="prompt-panel-header">
+        <h2>Prompt do agente</h2>
+        <button id="btn-close-prompt" class="icon-btn" aria-label="Fechar">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <p class="prompt-panel-hint">
+        Este é o texto que instrui a Cibele durante toda a conversa. Ele roda
+        no workflow n8n — ao clicar em "Salvar prompt", a versão editada é
+        publicada direto lá (afeta todo mundo que testar o mesmo workflow).
+      </p>
+      <textarea id="prompt-textarea" class="prompt-textarea" spellcheck="false"></textarea>
+      <div class="prompt-panel-actions">
+        <button id="btn-restore-prompt" class="btn-secondary" type="button">Restaurar padrão</button>
+        <button id="btn-save-prompt" class="btn-primary" type="button">Salvar prompt</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="confirm-overlay">
+    <div class="confirm-box">
+      <p>Reiniciar a conversa e apagar todo o histórico?</p>
+      <div class="prompt-panel-actions">
+        <button id="btn-confirm-cancel" class="btn-secondary" type="button">Cancelar</button>
+        <button id="btn-confirm-reset" class="btn-primary" type="button">Reiniciar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>

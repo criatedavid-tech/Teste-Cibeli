@@ -1,0 +1,12 @@
+{
+  "name": "cibele-atendimento",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interface de chat para testar o agente de atendimento Cibele (CI Intercambio).",
+  "scripts": {
+    "dev": "node dev-server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
