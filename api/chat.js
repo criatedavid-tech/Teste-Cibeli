@@ -47,15 +47,15 @@ module.exports = async function handler(req, res) {
     }
 
     if (!response.ok) {
-      res.status(502).json({
-        error: `Erro do n8n (${response.status}): ${rawText.slice(0, 500)}`,
-      });
+      console.error("Falha interna no atendimento:", response.status, rawText.slice(0, 500));
+      res.status(502).json({ error: "O atendimento está temporariamente indisponível." });
       return;
     }
 
     const reply = (data && (data.output || data.reply || data.text)) || "";
     res.status(200).json({ reply });
   } catch (err) {
-    res.status(500).json({ error: `Falha ao chamar o n8n: ${err.message}` });
+    console.error("Falha interna ao processar o atendimento:", err);
+    res.status(500).json({ error: "Falha ao processar o atendimento." });
   }
 };

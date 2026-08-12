@@ -11,7 +11,7 @@ module.exports = async function handler(req, res) {
     const workflow = await fetchWorkflow();
     const systemPrompt = getSystemPrompt(workflow);
     if (!systemPrompt.trim()) {
-      res.status(502).json({ error: "O prompt ativo no n8n está vazio." });
+      res.status(502).json({ error: "O prompt ativo está indisponível." });
       return;
     }
 
@@ -20,9 +20,9 @@ module.exports = async function handler(req, res) {
       systemPrompt,
       version: shortHash(systemPrompt),
       updatedAt: workflow.updatedAt || null,
-      source: "n8n",
     });
   } catch (err) {
-    res.status(502).json({ error: `Falha ao consultar o prompt ativo: ${err.message}` });
+    console.error("Falha interna ao consultar o prompt ativo:", err);
+    res.status(502).json({ error: "Falha ao consultar o prompt ativo." });
   }
 };

@@ -80,6 +80,7 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    res.status(502).json({ error: `Falha ao publicar o prompt: ${err.message}` });
+    console.error("Falha interna ao publicar o prompt:", err);
+    res.status(502).json({ error: "Falha ao publicar o prompt." });
   }
 };

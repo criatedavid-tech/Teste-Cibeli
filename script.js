@@ -275,7 +275,7 @@
     } catch (err) {
       try {
         promptTextarea.value = getCurrentPrompt() || (await fetchDefaultPrompt());
-        promptVersion.textContent = "Versão local de contingência — n8n indisponível";
+        promptVersion.textContent = "Versão local de contingência — serviço temporariamente indisponível";
       } catch {
         promptTextarea.value = "";
         promptVersion.textContent = "Não foi possível carregar o prompt";
