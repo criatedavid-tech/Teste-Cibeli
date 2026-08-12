@@ -4,7 +4,8 @@
   "private": true,
   "description": "Interface de chat para testar o agente de atendimento Cibele (CI Intercambio).",
   "scripts": {
-    "dev": "node dev-server.js"
+    "dev": "node dev-server.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=18"

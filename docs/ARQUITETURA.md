@@ -157,8 +157,8 @@ agência. Tratar essa chave como credencial de alto privilégio:
 - Sem memória persistente de verdade do lado do n8n (ver 4.2) — funciona hoje
   porque nossa interface carrega o histórico, mas não escala pra outros
   canais sem mudança no workflow.
-- Sem versionamento automático entre o prompt publicado no n8n e o arquivo
-  `.md` do repositório — a sincronização hoje é manual.
+- A automação GitHub → Vercel → n8n depende da identidade OIDC temporária do
+  GitHub Actions; não existem secrets compartilhados entre os ambientes.
 - O node `chatTrigger` original ficou no workflow sem uso pela nossa
   interface (só serve pro teste manual dentro do editor n8n); pode ser
   removido se quiserem simplificar o fluxo.
@@ -167,3 +167,39 @@ agência. Tratar essa chave como credencial de alto privilégio:
   significado de status do CRM) — o prompt trata isso como "não confirmo,
   vou verificar com o consultor", mas assim que esses dados existirem, vale
   atualizar o `.md` e republicar.
+
+## 8. Evolução do prompt via Claude Code e GitHub
+
+O prompt oficial passa a viver em
+`cigoiania/Cibele/prompt/system-prompt-cibele.md`. O aplicativo mantém sua
+cópia local apenas como contingência; o painel consulta o n8n e exibe a versão
+realmente ativa.
+
+```text
+Claude Code altera o prompt no GitHub
+  -> GitHub Actions valida o arquivo
+  -> POST autenticado para /api/sync-prompt
+  -> Vercel busca e guarda em memória a versão anterior
+  -> Vercel atualiza o System Message do AI Agent
+  -> Vercel consulta novamente e confere o hash
+  -> sucesso ou tentativa de rollback
+```
+
+A ponte aceita somente uma identidade OIDC temporária emitida pelo GitHub para
+o repositório `cigoiania/Cibele` e a branch `claude/ci_goiania`. A
+`N8N_API_KEY` continua exclusivamente na Vercel e nenhuma credencial é
+compartilhada com o Claude Code.
+
+## 9. Conversas para análise
+
+O botão de exportar conversa cria no navegador um arquivo JSON com o histórico,
+a sessão, a data e as observações do testador. Não existe permissão de escrita
+do aplicativo no GitHub.
+
+O arquivo pode ser entregue ao Claude Code ou adicionado manualmente a
+`conversas/pendentes/`. O Claude Code discute o caso com o Marcelo antes de
+alterar o prompt. Conversas não autorizam treinamento automático e não devem
+ser tratadas como fonte comercial oficial.
+
+Não exportar ou versionar conversas reais com dados pessoais sem política e
+base legal adequadas.

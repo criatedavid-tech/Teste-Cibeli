@@ -17,6 +17,9 @@
         </div>
       </div>
       <div class="header-actions">
+        <button id="btn-save-conversation" class="icon-btn" title="Exportar conversa para análise" aria-label="Exportar conversa para análise">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4zm-5 16a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm3-10H5V5h10v4z"/></svg>
+        </button>
         <button id="btn-open-prompt" class="icon-btn" title="Editar prompt do agente" aria-label="Editar prompt do agente">
           <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
         </button>
@@ -47,14 +50,13 @@
         </button>
       </div>
       <p class="prompt-panel-hint">
-        Este é o texto que instrui a Cibele durante toda a conversa. Ele roda
-        no workflow n8n — ao clicar em "Salvar prompt", a versão editada é
-        publicada direto lá (afeta todo mundo que testar o mesmo workflow).
+        Esta é a versão que está realmente ativa no atendimento. A fonte
+        oficial fica no GitHub e é atualizada pelo Claude Code do Marcelo.
       </p>
-      <textarea id="prompt-textarea" class="prompt-textarea" spellcheck="false"></textarea>
+      <p class="prompt-panel-hint" id="prompt-version">Consultando versão ativa...</p>
+      <textarea id="prompt-textarea" class="prompt-textarea" spellcheck="false" readonly></textarea>
       <div class="prompt-panel-actions">
-        <button id="btn-restore-prompt" class="btn-secondary" type="button">Restaurar padrão</button>
-        <button id="btn-save-prompt" class="btn-primary" type="button">Salvar prompt</button>
+        <button id="btn-restore-prompt" class="btn-secondary" type="button">Recarregar publicada</button>
       </div>
     </div>
   </div>

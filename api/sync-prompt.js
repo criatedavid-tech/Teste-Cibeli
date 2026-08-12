@@ -1,6 +1,6 @@
-const DEFAULT_N8N_BASE = "https://212n8n.criate.online";
-const DEFAULT_WORKFLOW_ID = "kpuav6twkR2hnZ3r";
-const AGENT_NODE_NAME = "AI Agent";
+const { fetchWorkflow, getConfig, getSystemPrompt, putWorkflow } = require("./_n8n-client");
+const { verifyGitHubOidc } = require("./_github-oidc");
+const { getBearerToken, isAuthorized, shortHash, validatePrompt } = require("./_prompt-core");
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
@@ -8,67 +8,78 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const apiKey = process.env.N8N_API_KEY;
-  if (!apiKey) {
-    res.status(500).json({
-      error: "N8N_API_KEY não configurada no servidor. Sem ela não dá para publicar o prompt no n8n.",
-    });
+  const allowedTokens = [process.env.PROMPT_SYNC_TOKEN, process.env.CIBELE_ADMIN_TOKEN].filter(Boolean);
+  const staticAuthorization = allowedTokens.length > 0 && isAuthorized(req, allowedTokens);
+  const oidcAuthorization = staticAuthorization
+    ? false
+    : await verifyGitHubOidc(getBearerToken(req));
+  if (!staticAuthorization && !oidcAuthorization) {
+    res.status(401).json({ error: "Publicação não autorizada." });
     return;
   }
 
-  const { systemPrompt } = req.body || {};
-  if (!systemPrompt || typeof systemPrompt !== "string") {
-    res.status(400).json({ error: "Campo systemPrompt é obrigatório." });
+  const validation = validatePrompt(req.body && req.body.systemPrompt);
+  if (!validation.ok) {
+    res.status(400).json({ error: "Prompt rejeitado pela validação.", details: validation.errors });
     return;
   }
 
-  const n8nBase = process.env.N8N_BASE_URL || DEFAULT_N8N_BASE;
-  const workflowId = process.env.N8N_WORKFLOW_ID || DEFAULT_WORKFLOW_ID;
+  let workflow;
+  let previousPrompt = "";
 
   try {
-    const getRes = await fetch(`${n8nBase}/api/v1/workflows/${workflowId}`, {
-      headers: { "X-N8N-API-KEY": apiKey },
-    });
-    if (!getRes.ok) {
-      res.status(502).json({ error: `Falha ao buscar o workflow no n8n (${getRes.status}).` });
-      return;
-    }
-    const wf = await getRes.json();
+    const config = getConfig();
+    workflow = await fetchWorkflow(config);
+    previousPrompt = getSystemPrompt(workflow);
+    const previousVersion = shortHash(previousPrompt);
+    const nextVersion = shortHash(validation.prompt);
 
-    const nodes = wf.nodes.map((n) => {
-      if (n.name === AGENT_NODE_NAME) {
-        return {
-          ...n,
-          parameters: {
-            ...n.parameters,
-            options: { ...n.parameters.options, systemMessage: systemPrompt },
-          },
-        };
-      }
-      return n;
-    });
-
-    const payload = {
-      name: wf.name,
-      nodes,
-      connections: wf.connections,
-      settings: { executionOrder: (wf.settings && wf.settings.executionOrder) || "v1" },
-    };
-
-    const putRes = await fetch(`${n8nBase}/api/v1/workflows/${workflowId}`, {
-      method: "PUT",
-      headers: { "X-N8N-API-KEY": apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!putRes.ok) {
-      const errText = await putRes.text();
-      res.status(502).json({ error: `Falha ao atualizar o workflow (${putRes.status}): ${errText.slice(0, 300)}` });
+    if (previousVersion === nextVersion) {
+      res.status(200).json({ ok: true, changed: false, version: nextVersion });
       return;
     }
 
-    res.status(200).json({ ok: true });
+    await putWorkflow(workflow, validation.prompt, config);
+    const verificationWorkflow = await fetchWorkflow(config);
+    const publishedPrompt = getSystemPrompt(verificationWorkflow);
+
+    if (shortHash(publishedPrompt) !== nextVersion) {
+      throw new Error("A verificação após a publicação retornou uma versão diferente.");
+    }
+
+    console.log(JSON.stringify({
+      event: "prompt_published",
+      workflowId: config.workflowId,
+      previousVersion,
+      version: nextVersion,
+      source: req.headers && req.headers["x-prompt-source"] || "manual",
+      at: new Date().toISOString(),
+    }));
+
+    res.status(200).json({
+      ok: true,
+      changed: true,
+      previousVersion,
+      version: nextVersion,
+    });
   } catch (err) {
-    res.status(500).json({ error: `Erro ao publicar no n8n: ${err.message}` });
+    if (workflow && previousPrompt) {
+      try {
+        await putWorkflow(workflow, previousPrompt);
+        console.error(JSON.stringify({
+          event: "prompt_publish_rollback",
+          previousVersion: shortHash(previousPrompt),
+          at: new Date().toISOString(),
+        }));
+      } catch (rollbackError) {
+        console.error(JSON.stringify({
+          event: "prompt_publish_rollback_failed",
+          error: rollbackError.message,
+          at: new Date().toISOString(),
+        }));
+      }
+    }
+
+    res.status(502).json({ error: `Falha ao publicar o prompt: ${err.message}` });
   }
 };

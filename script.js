@@ -2,6 +2,7 @@
   const STORAGE_HISTORY = "cibele_chat_history";
   const STORAGE_PROMPT = "cibele_system_prompt";
   const STORAGE_SESSION = "cibele_session_id";
+  const STORAGE_LAST_SAVED_CONVERSATION = "cibele_last_saved_conversation";
   const DEFAULT_PROMPT_URL = "prompts/system-prompt-cibele.md";
 
   const chatScroll = document.getElementById("chat-scroll");
@@ -9,11 +10,12 @@
   const input = document.getElementById("input");
   const sendBtn = document.getElementById("btn-send");
   const resetBtn = document.getElementById("btn-reset");
+  const saveConversationBtn = document.getElementById("btn-save-conversation");
   const openPromptBtn = document.getElementById("btn-open-prompt");
   const closePromptBtn = document.getElementById("btn-close-prompt");
   const promptOverlay = document.getElementById("prompt-overlay");
   const promptTextarea = document.getElementById("prompt-textarea");
-  const saveBtn = document.getElementById("btn-save-prompt");
+  const promptVersion = document.getElementById("prompt-version");
   const restoreBtn = document.getElementById("btn-restore-prompt");
   const toast = document.getElementById("toast");
   const confirmOverlay = document.getElementById("confirm-overlay");
@@ -63,6 +65,19 @@
     if (!res.ok) throw new Error("Não foi possível carregar o prompt padrão.");
     defaultPromptCache = await res.text();
     return defaultPromptCache;
+  }
+
+  async function fetchActivePrompt() {
+    const res = await fetch("/api/prompt", { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.systemPrompt) {
+      throw new Error(data.error || "Não foi possível consultar o prompt publicado.");
+    }
+    return data;
+  }
+
+  function conversationFingerprint() {
+    return JSON.stringify(messages);
   }
 
   function renderEmptyState() {
@@ -195,17 +210,77 @@
     messages = [];
     localStorage.removeItem(STORAGE_HISTORY);
     localStorage.removeItem(STORAGE_SESSION);
+    localStorage.removeItem(STORAGE_LAST_SAVED_CONVERSATION);
     renderAll();
     confirmOverlay.classList.remove("open");
     showToast("Conversa reiniciada");
   });
 
-  openPromptBtn.addEventListener("click", async () => {
+  saveConversationBtn.addEventListener("click", async () => {
+    if (messages.length < 2) {
+      showToast("Converse com a Cibele antes de salvar o teste");
+      return;
+    }
+
+    const fingerprint = conversationFingerprint();
+    if (localStorage.getItem(STORAGE_LAST_SAVED_CONVERSATION) === fingerprint) {
+      showToast("Esta versão da conversa já foi salva");
+      return;
+    }
+
+    const feedback = window.prompt(
+      "Observações para o Claude (opcional): o que funcionou ou precisa melhorar?"
+    );
+    if (feedback === null) return;
+
+    saveConversationBtn.disabled = true;
     try {
-      promptTextarea.value = getCurrentPrompt() || (await fetchDefaultPrompt());
+      const record = {
+        schemaVersion: 1,
+        createdAt: new Date().toISOString(),
+        source: "cibele-atendimento.vercel.app",
+        sessionId: getSessionId(),
+        status: "pendente",
+        feedback: feedback.trim(),
+        notice: "Conversa de teste. Não usar como verdade comercial sem validação explícita do Marcelo.",
+        messages: messages.map((message) => ({ role: message.role, content: message.content })),
+      };
+      const blob = new Blob([JSON.stringify(record, null, 2) + "\n"], {
+        type: "application/json;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `conversa-cibele-${record.createdAt.replace(/[:.]/g, "-")}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      localStorage.setItem(STORAGE_LAST_SAVED_CONVERSATION, fingerprint);
+      showToast("Conversa exportada para análise");
     } catch (err) {
-      promptTextarea.value = "";
-      showToast("Erro ao carregar o prompt: " + err.message);
+      showToast("Erro ao exportar conversa: " + err.message);
+    } finally {
+      saveConversationBtn.disabled = false;
+    }
+  });
+
+  openPromptBtn.addEventListener("click", async () => {
+    promptVersion.textContent = "Consultando versão ativa...";
+    try {
+      const active = await fetchActivePrompt();
+      promptTextarea.value = active.systemPrompt;
+      localStorage.setItem(STORAGE_PROMPT, active.systemPrompt);
+      promptVersion.textContent = `Versão ativa: ${active.version}`;
+    } catch (err) {
+      try {
+        promptTextarea.value = getCurrentPrompt() || (await fetchDefaultPrompt());
+        promptVersion.textContent = "Versão local de contingência — n8n indisponível";
+      } catch {
+        promptTextarea.value = "";
+        promptVersion.textContent = "Não foi possível carregar o prompt";
+      }
+      showToast("Erro ao consultar o prompt ativo: " + err.message);
     }
     promptOverlay.classList.add("open");
   });
@@ -218,38 +293,13 @@
     if (e.target === promptOverlay) promptOverlay.classList.remove("open");
   });
 
-  saveBtn.addEventListener("click", async () => {
-    const value = promptTextarea.value;
-    localStorage.setItem(STORAGE_PROMPT, value);
-    saveBtn.disabled = true;
-    saveBtn.textContent = "Publicando...";
-    try {
-      const res = await fetch("/api/sync-prompt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ systemPrompt: value }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        showToast(data.error || "Salvo localmente, mas falhou ao publicar no n8n");
-      } else {
-        promptOverlay.classList.remove("open");
-        showToast("Prompt atualizado e publicado no n8n");
-      }
-    } catch (err) {
-      showToast("Salvo localmente, mas falhou ao publicar no n8n: " + err.message);
-    } finally {
-      saveBtn.disabled = false;
-      saveBtn.textContent = "Salvar prompt";
-    }
-  });
-
   restoreBtn.addEventListener("click", async () => {
     try {
-      const def = await fetchDefaultPrompt();
-      promptTextarea.value = def;
-      localStorage.setItem(STORAGE_PROMPT, def);
-      showToast("Prompt padrão restaurado");
+      const active = await fetchActivePrompt();
+      promptTextarea.value = active.systemPrompt;
+      localStorage.setItem(STORAGE_PROMPT, active.systemPrompt);
+      promptVersion.textContent = `Versão ativa: ${active.version}`;
+      showToast("Versão publicada recarregada");
     } catch (err) {
       showToast("Erro ao restaurar: " + err.message);
     }

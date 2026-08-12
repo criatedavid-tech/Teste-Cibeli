@@ -10,7 +10,8 @@ para publicar na Vercel.
 ```
 index.html, style.css, script.js   -> interface do chat
 api/chat.js                        -> repassa a conversa para o webhook do n8n
-api/sync-prompt.js                 -> publica o prompt editado no node "AI Agent" do n8n
+api/prompt.js                      -> consulta o prompt realmente ativo no n8n
+api/sync-prompt.js                 -> publica, verifica e faz rollback do prompt no n8n
 prompts/system-prompt-cibele.md    -> prompt padrão da Cibele (carregado no 1º acesso)
 dev-server.js                      -> servidor local só para desenvolvimento
 ```
@@ -47,13 +48,14 @@ Não precisa de nenhuma variável de ambiente para conversar com a Cibele — o
 webhook do n8n já está configurado como padrão em `api/chat.js`. Abra
 http://localhost:3000.
 
-Variáveis de ambiente aceitas (todas opcionais, têm um padrão já embutido):
+Variáveis de ambiente:
 
 - `N8N_WEBHOOK_URL` — URL do webhook do workflow (padrão: o link acima).
-- `N8N_API_KEY` — **só necessária se você quiser usar o botão "Salvar prompt"**
-  para publicar direto no n8n (usada por `api/sync-prompt.js`). Sem ela, o
-  prompt continua editável e salvo no navegador, só não publica no n8n.
+- `N8N_API_KEY` — necessária para consultar e publicar o prompt no n8n.
 - `N8N_BASE_URL` / `N8N_WORKFLOW_ID` — só se o workflow mudar de lugar/ID.
+- `PROMPT_SYNC_TOKEN` — opcional, mantido apenas como acesso administrativo de
+  contingência. A automação normal usa a identidade temporária do GitHub
+  Actions e não depende de secret compartilhado.
 
 ⚠️ **Atenção com `N8N_API_KEY`:** essa chave dá acesso de leitura/escrita a
 **todos os workflows da instância n8n** (não só o da Cibele — é uma instância
@@ -68,16 +70,41 @@ plataforma de n8n usada permitir.
 2. Na Vercel, "Add New Project" → importe o repositório (não precisa
    configurar build command nem output directory — é um projeto estático +
    funções serverless, a Vercel detecta sozinha).
-3. Em **Settings → Environment Variables**, adicione `N8N_API_KEY` (se quiser
-   o botão de publicar o prompt funcionando em produção) para os ambientes
-   Production e Preview.
+3. Em **Settings → Environment Variables**, configure os segredos descritos
+   acima. Nunca coloque os valores no repositório nem no JavaScript do
+   navegador.
 4. Deploy. A interface fica em `https://<seu-projeto>.vercel.app`.
 
 ## Como funciona a interface
 
-- O prompt exibido no painel ("editar prompt") começa com o conteúdo de
-  `prompts/system-prompt-cibele.md`, mas o que realmente vale durante os
-  testes é o que está publicado no n8n. Editar e clicar em "Salvar prompt"
-  atualiza os dois: o navegador (`localStorage`) e o node "AI Agent" no n8n.
+- O painel consulta `api/prompt.js` e mostra a versão realmente publicada no
+  n8n. O arquivo local é apenas contingência quando o n8n está indisponível.
+- O prompt oficial fica em `cigoiania/Cibele/prompt/system-prompt-cibele.md`.
+  Uma alteração aprovada na branch oficial aciona o GitHub Actions, que chama
+  `api/sync-prompt.js` usando autenticação Bearer.
+- O botão de exportar conversa baixa um JSON local com histórico, sessão e
+  observações do Marcelo. O arquivo pode ser entregue ao Claude Code ou
+  adicionado a `conversas/pendentes/` quando for importante preservar o teste.
 - O histórico da conversa fica só no navegador (`localStorage`). O botão de
   reset limpa o histórico e a sessão, não o prompt.
+
+## Ordem de ativação da automação
+
+1. Publicar primeiro esta versão da aplicação na Vercel.
+2. Enviar o workflow e a pasta `prompt/` para a branch oficial.
+3. Opcionalmente criar a variável de Actions `PROMPT_SYNC_URL`; sem ela, o
+   workflow usa `https://cibele-atendimento.vercel.app/api/sync-prompt`.
+4. A automação obtém uma identidade OIDC temporária do GitHub; nenhum secret
+   precisa ser compartilhado com o Claude Code.
+
+## Segurança e rollback
+
+- A API recusa prompts vazios, pequenos demais ou sem seções/regras críticas.
+- Depois do `PUT`, a versão é buscada novamente no n8n e comparada pelo hash.
+- Se a verificação falhar, a API tenta republicar imediatamente a versão
+  anterior.
+- Logs registram versões e eventos, nunca o conteúdo do prompt nem segredos.
+- Para rollback operacional, reverta o commit do prompt no repositório de
+  treinamento; a versão restaurada será republicada.
+- A Vercel não recebe token permanente do GitHub e não possui permissão de escrita no
+  repositório de treinamento.

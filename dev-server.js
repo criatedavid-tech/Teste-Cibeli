@@ -63,14 +63,24 @@ function attachVercelShim(res) {
 const server = http.createServer((req, res) => {
   const urlPath = req.url.split("?")[0];
 
-  if (urlPath.startsWith("/api/") && req.method === "POST") {
+  if (urlPath.startsWith("/api/")) {
     const apiFile = path.join(ROOT, "api", urlPath.slice(5) + ".js");
     if (!fs.existsSync(apiFile)) {
       res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
       res.end(JSON.stringify({ error: "Rota não encontrada: " + urlPath }));
       return;
     }
+    delete require.cache[require.resolve(apiFile)];
     const handler = require(apiFile);
+    attachVercelShim(res);
+
+    if (req.method === "GET") {
+      Promise.resolve(handler(req, res)).catch((err) => {
+        if (!res.writableEnded) res.status(500).json({ error: "Erro interno: " + err.message });
+      });
+      return;
+    }
+
     let raw = "";
     req.on("data", (chunk) => (raw += chunk));
     req.on("end", async () => {
@@ -79,7 +89,6 @@ const server = http.createServer((req, res) => {
       } catch {
         req.body = {};
       }
-      attachVercelShim(res);
       try {
         await handler(req, res);
       } catch (err) {
