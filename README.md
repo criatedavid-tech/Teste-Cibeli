@@ -12,6 +12,7 @@ index.html, style.css, script.js   -> interface do chat
 api/chat.js                        -> repassa a conversa para o webhook do n8n
 api/prompt.js                      -> consulta o prompt realmente ativo no n8n
 api/sync-prompt.js                 -> publica, verifica e faz rollback do prompt no n8n
+api/save-conversation.js           -> salva testes fictícios no repositório de treinamento
 prompts/system-prompt-cibele.md    -> prompt padrão da Cibele (carregado no 1º acesso)
 dev-server.js                      -> servidor local só para desenvolvimento
 ```
@@ -56,6 +57,13 @@ Variáveis de ambiente:
 - `PROMPT_SYNC_TOKEN` — opcional, mantido apenas como acesso administrativo de
   contingência. A automação normal usa a identidade temporária do GitHub
   Actions e não depende de secret compartilhado.
+- `CONVERSATION_SAVE_TOKEN` — chave administrativa solicitada pelo botão de
+  salvar conversa. Pode usar `CIBELE_ADMIN_TOKEN` como contingência.
+- `CIBELE_GITHUB_APP_ID` — identificador público da GitHub App.
+- `CIBELE_GITHUB_INSTALLATION_ID` — instalação restrita ao repositório
+  `cigoiania/Cibele`.
+- `CIBELE_GITHUB_PRIVATE_KEY` — chave privada PEM da GitHub App. Deve existir
+  somente na Vercel e nunca no navegador, no GitHub ou em conversas.
 
 ⚠️ **Atenção com `N8N_API_KEY`:** essa chave dá acesso de leitura/escrita a
 **todos os workflows da instância n8n** (não só o da Cibele — é uma instância
@@ -82,9 +90,9 @@ plataforma de n8n usada permitir.
 - O prompt oficial fica em `cigoiania/Cibele/prompt/system-prompt-cibele.md`.
   Uma alteração aprovada na branch oficial aciona o GitHub Actions, que chama
   `api/sync-prompt.js` usando autenticação Bearer.
-- O botão de exportar conversa baixa um JSON local com histórico, sessão e
-  observações do Marcelo. O arquivo pode ser entregue ao Claude Code ou
-  adicionado a `conversas/pendentes/` quando for importante preservar o teste.
+- O botão de salvar conversa exibe um aviso de repositório público, solicita a
+  chave administrativa e registra somente testes fictícios em
+  `conversas/pendentes/`. Não salvar dados pessoais ou confidenciais.
 - O histórico da conversa fica só no navegador (`localStorage`). O botão de
   reset limpa o histórico e a sessão, não o prompt.
 
@@ -106,5 +114,6 @@ plataforma de n8n usada permitir.
 - Logs registram versões e eventos, nunca o conteúdo do prompt nem segredos.
 - Para rollback operacional, reverta o commit do prompt no repositório de
   treinamento; a versão restaurada será republicada.
-- A Vercel não recebe token permanente do GitHub e não possui permissão de escrita no
-  repositório de treinamento.
+- A chave privada da GitHub App fica somente na Vercel. A cada salvamento, o
+  servidor obtém um token temporário limitado ao repositório `Cibele`; o código
+  também bloqueia qualquer caminho fora de `conversas/pendentes/`.

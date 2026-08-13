@@ -2,6 +2,7 @@
   const STORAGE_HISTORY = "cibele_chat_history";
   const STORAGE_PROMPT = "cibele_system_prompt";
   const STORAGE_SESSION = "cibele_session_id";
+  const STORAGE_CONVERSATION_TOKEN = "cibele_conversation_token";
   const STORAGE_LAST_SAVED_CONVERSATION = "cibele_last_saved_conversation";
   const DEFAULT_PROMPT_URL = "prompts/system-prompt-cibele.md";
 
@@ -228,38 +229,49 @@
       return;
     }
 
+    const publicRepoConfirmed = window.confirm(
+      "Esta conversa será registrada em um repositório público. Salve somente testes fictícios, sem dados pessoais, documentos ou informações confidenciais. Deseja continuar?"
+    );
+    if (!publicRepoConfirmed) return;
+
     const feedback = window.prompt(
       "Observações para o Claude (opcional): o que funcionou ou precisa melhorar?"
     );
     if (feedback === null) return;
 
+    let adminToken = sessionStorage.getItem(STORAGE_CONVERSATION_TOKEN) || "";
+    if (!adminToken) {
+      adminToken = window.prompt("Digite a chave para salvar conversas de teste:") || "";
+      if (!adminToken) return;
+      sessionStorage.setItem(STORAGE_CONVERSATION_TOKEN, adminToken);
+    }
+
     saveConversationBtn.disabled = true;
     try {
-      const record = {
-        schemaVersion: 1,
-        createdAt: new Date().toISOString(),
-        source: "cibele-atendimento.vercel.app",
-        sessionId: getSessionId(),
-        status: "pendente",
-        feedback: feedback.trim(),
-        notice: "Conversa de teste. Não usar como verdade comercial sem validação explícita do Marcelo.",
-        messages: messages.map((message) => ({ role: message.role, content: message.content })),
-      };
-      const blob = new Blob([JSON.stringify(record, null, 2) + "\n"], {
-        type: "application/json;charset=utf-8",
+      const res = await fetch("/api/save-conversation", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sessionId: getSessionId(),
+          feedback: feedback.trim(),
+          messages: messages.map((message) => ({ role: message.role, content: message.content })),
+        }),
       });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `conversa-cibele-${record.createdAt.replace(/[:.]/g, "-")}.json`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 401) sessionStorage.removeItem(STORAGE_CONVERSATION_TOKEN);
+        showToast(data.error || "Não foi possível salvar a conversa");
+        return;
+      }
+
       localStorage.setItem(STORAGE_LAST_SAVED_CONVERSATION, fingerprint);
-      showToast("Conversa exportada para análise");
+      showToast("Conversa salva para análise");
     } catch (err) {
-      showToast("Erro ao exportar conversa: " + err.message);
+      showToast("Erro ao salvar conversa: " + err.message);
     } finally {
       saveConversationBtn.disabled = false;
     }

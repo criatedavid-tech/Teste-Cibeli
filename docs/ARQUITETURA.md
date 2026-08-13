@@ -192,14 +192,17 @@ compartilhada com o Claude Code.
 
 ## 9. Conversas para análise
 
-O botão de exportar conversa cria no navegador um arquivo JSON com o histórico,
-a sessão, a data e as observações do testador. Não existe permissão de escrita
-do aplicativo no GitHub.
+O botão de salvar conversa envia o histórico fictício de teste para
+`api/save-conversation.js`. Antes do envio, a interface informa claramente que
+o repositório é público e exige confirmação do testador.
 
-O arquivo pode ser entregue ao Claude Code ou adicionado manualmente a
-`conversas/pendentes/`. O Claude Code discute o caso com o Marcelo antes de
-alterar o prompt. Conversas não autorizam treinamento automático e não devem
-ser tratadas como fonte comercial oficial.
+A função valida formato e tamanho, registra a versão ativa do prompt e solicita
+um token temporário por meio de uma GitHub App instalada somente em
+`cigoiania/Cibele`. Repositório, branch e prefixo
+`conversas/pendentes/` são fixos no servidor; tentativas de usar outro caminho
+são recusadas. A chave privada existe somente como variável secreta da Vercel.
 
-Não exportar ou versionar conversas reais com dados pessoais sem política e
-base legal adequadas.
+O Claude Code discute o caso com o Marcelo antes de alterar o prompt. Salvar
+uma conversa não autoriza treinamento automático e não a transforma em fonte
+comercial oficial. Como o repositório é público, não salvar conversas reais,
+dados pessoais, documentos ou informações confidenciais.
