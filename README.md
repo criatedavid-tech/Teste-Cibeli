@@ -57,9 +57,6 @@ Variáveis de ambiente:
 - `PROMPT_SYNC_TOKEN` — opcional, mantido apenas como acesso administrativo de
   contingência. A automação normal usa a identidade temporária do GitHub
   Actions e não depende de secret compartilhado.
-- `CONVERSATION_SAVE_TOKEN` — chave administrativa solicitada somente na
-  primeira autorização do navegador. Pode usar `CIBELE_ADMIN_TOKEN` como
-  contingência.
 - `CIBELE_GITHUB_APP_ID` — identificador público da GitHub App.
 - `CIBELE_GITHUB_INSTALLATION_ID` — instalação restrita ao repositório
   `cigoiania/Cibele`.
@@ -92,10 +89,9 @@ plataforma de n8n usada permitir.
   Uma alteração aprovada na branch oficial aciona o GitHub Actions, que chama
   `api/sync-prompt.js` usando autenticação Bearer.
 - O botão de salvar conversa exibe um aviso de repositório público e registra
-  somente testes fictícios em `conversas/pendentes/`. Na primeira utilização,
-  solicita a chave administrativa e autoriza o navegador por um ano usando um
-  cookie seguro, `HttpOnly`, `Secure` e `SameSite=Strict`. Não salvar dados
-  pessoais ou confidenciais.
+  diretamente somente testes fictícios em `conversas/pendentes/`, sem login ou
+  chave no navegador. A API continua limitada ao repositório, branch, pasta e
+  formato oficiais. Não salvar dados pessoais ou confidenciais.
 - O histórico da conversa fica só no navegador (`localStorage`). O botão de
   reset limpa o histórico e a sessão, não o prompt.
 

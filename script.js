@@ -240,39 +240,17 @@
 
     saveConversationBtn.disabled = true;
     try {
-      const saveConversation = () => fetch("/api/save-conversation", {
+      const res = await fetch("/api/save-conversation", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "same-origin",
         body: JSON.stringify({
           sessionId: getSessionId(),
           feedback: feedback.trim(),
           messages: messages.map((message) => ({ role: message.role, content: message.content })),
         }),
       });
-
-      let res = await saveConversation();
-      if (res.status === 401) {
-        const adminToken = window.prompt(
-          "Autorize este navegador uma única vez. Digite a chave para salvar conversas de teste:"
-        ) || "";
-        if (!adminToken) return;
-
-        const authorizationResponse = await fetch("/api/authorize-conversation-save", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${adminToken}` },
-          credentials: "same-origin",
-        });
-        const authorizationData = await authorizationResponse.json().catch(() => ({}));
-        if (!authorizationResponse.ok) {
-          showToast(authorizationData.error || "Não foi possível autorizar este navegador");
-          return;
-        }
-
-        res = await saveConversation();
-      }
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {

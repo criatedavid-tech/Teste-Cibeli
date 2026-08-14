@@ -1,8 +1,7 @@
 const { createConversationPath, createConversationRecord } = require("./_conversation-core");
 const { createInstallationToken } = require("./_github-app");
 const { fetchWorkflow, getSystemPrompt } = require("./_n8n-client");
-const { isAuthorized, shortHash } = require("./_prompt-core");
-const { hasValidConversationSession } = require("./_conversation-auth");
+const { shortHash } = require("./_prompt-core");
 
 const TRAINING_REPO = "cigoiania/Cibele";
 const TRAINING_BRANCH = "claude/ci_goiania";
@@ -37,16 +36,6 @@ async function saveOnGitHub({ path, token, content, message, fetchImpl = fetch }
 async function handler(req, res) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Método não permitido." });
-    return;
-  }
-
-  const adminTokens = [process.env.CONVERSATION_SAVE_TOKEN, process.env.CIBELE_ADMIN_TOKEN].filter(Boolean);
-  if (adminTokens.length === 0) {
-    res.status(503).json({ error: "Salvamento de conversas ainda não configurado." });
-    return;
-  }
-  if (!isAuthorized(req, adminTokens) && !hasValidConversationSession(req, adminTokens)) {
-    res.status(401).json({ error: "Chave de salvamento inválida." });
     return;
   }
 
