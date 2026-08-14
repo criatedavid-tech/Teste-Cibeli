@@ -2,7 +2,6 @@
   const STORAGE_HISTORY = "cibele_chat_history";
   const STORAGE_PROMPT = "cibele_system_prompt";
   const STORAGE_SESSION = "cibele_session_id";
-  const STORAGE_CONVERSATION_TOKEN = "cibele_conversation_token";
   const STORAGE_LAST_SAVED_CONVERSATION = "cibele_last_saved_conversation";
   const DEFAULT_PROMPT_URL = "prompts/system-prompt-cibele.md";
 
@@ -239,21 +238,14 @@
     );
     if (feedback === null) return;
 
-    let adminToken = sessionStorage.getItem(STORAGE_CONVERSATION_TOKEN) || "";
-    if (!adminToken) {
-      adminToken = window.prompt("Digite a chave para salvar conversas de teste:") || "";
-      if (!adminToken) return;
-      sessionStorage.setItem(STORAGE_CONVERSATION_TOKEN, adminToken);
-    }
-
     saveConversationBtn.disabled = true;
     try {
-      const res = await fetch("/api/save-conversation", {
+      const saveConversation = () => fetch("/api/save-conversation", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${adminToken}`,
           "Content-Type": "application/json",
         },
+        credentials: "same-origin",
         body: JSON.stringify({
           sessionId: getSessionId(),
           feedback: feedback.trim(),
@@ -261,9 +253,29 @@
         }),
       });
 
+      let res = await saveConversation();
+      if (res.status === 401) {
+        const adminToken = window.prompt(
+          "Autorize este navegador uma única vez. Digite a chave para salvar conversas de teste:"
+        ) || "";
+        if (!adminToken) return;
+
+        const authorizationResponse = await fetch("/api/authorize-conversation-save", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${adminToken}` },
+          credentials: "same-origin",
+        });
+        const authorizationData = await authorizationResponse.json().catch(() => ({}));
+        if (!authorizationResponse.ok) {
+          showToast(authorizationData.error || "Não foi possível autorizar este navegador");
+          return;
+        }
+
+        res = await saveConversation();
+      }
+
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (res.status === 401) sessionStorage.removeItem(STORAGE_CONVERSATION_TOKEN);
         showToast(data.error || "Não foi possível salvar a conversa");
         return;
       }

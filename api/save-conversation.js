@@ -2,6 +2,7 @@ const { createConversationPath, createConversationRecord } = require("./_convers
 const { createInstallationToken } = require("./_github-app");
 const { fetchWorkflow, getSystemPrompt } = require("./_n8n-client");
 const { isAuthorized, shortHash } = require("./_prompt-core");
+const { hasValidConversationSession } = require("./_conversation-auth");
 
 const TRAINING_REPO = "cigoiania/Cibele";
 const TRAINING_BRANCH = "claude/ci_goiania";
@@ -44,7 +45,7 @@ async function handler(req, res) {
     res.status(503).json({ error: "Salvamento de conversas ainda não configurado." });
     return;
   }
-  if (!isAuthorized(req, adminTokens)) {
+  if (!isAuthorized(req, adminTokens) && !hasValidConversationSession(req, adminTokens)) {
     res.status(401).json({ error: "Chave de salvamento inválida." });
     return;
   }
