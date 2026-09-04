@@ -99,7 +99,7 @@ module.exports = async function handler(req, res) {
         });
         return;
       }
-      res.status(502).json({ error: "O atendimento está temporariamente indisponível.", retryable: true });
+      res.status(502).json({ error: "O atendimento está temporariamente indisponível.", retryable: false });
       return;
     }
 
@@ -107,7 +107,12 @@ module.exports = async function handler(req, res) {
     res.status(200).json({ reply });
   } catch (err) {
     console.error("Falha interna ao processar o atendimento:", err);
-    res.status(500).json({ error: "Falha ao processar o atendimento." });
+    res.setHeader("Retry-After", "5");
+    res.status(503).json({
+      error: "A conexão oscilou. Aguarde um instante; vamos tentar novamente.",
+      retryAfter: 5,
+      retryable: true,
+    });
   }
 };
 

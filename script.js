@@ -25,6 +25,7 @@
   let messages = [];
   let defaultPromptCache = null;
   let sending = false;
+  const MAX_CHAT_ATTEMPTS = 4;
 
   function wait(milliseconds) {
     return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -154,23 +155,28 @@
       let data;
       let retryNotice = null;
 
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: getSessionId(),
-            messages: messages.map((m) => ({ role: m.role, content: m.content })),
-          }),
-        });
-        data = await res.json().catch(() => ({}));
+      for (let attempt = 0; attempt < MAX_CHAT_ATTEMPTS; attempt += 1) {
+        try {
+          res = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sessionId: getSessionId(),
+              messages: messages.map((m) => ({ role: m.role, content: m.content })),
+            }),
+          });
+          data = await res.json().catch(() => ({}));
+        } catch (requestError) {
+          if (attempt === MAX_CHAT_ATTEMPTS - 1) throw requestError;
+          data = { retryable: true, retryAfter: Math.min(30, 5 * (2 ** attempt)) };
+        }
 
-        if (res.status !== 429 || !data.retryable || attempt > 0) break;
+        if ((res && res.ok) || !data.retryable || attempt === MAX_CHAT_ATTEMPTS - 1) break;
         const retryAfter = Math.min(60, Math.max(1, Number(data.retryAfter) || 30));
         removeTyping();
         retryNotice = renderBubble(
           "system",
-          `Muitas mensagens em sequência. Tentando novamente em ${retryAfter} segundos...`
+          `Serviço temporariamente ocupado. Tentando novamente em ${retryAfter} segundos...`
         );
         await wait(retryAfter * 1000);
         retryNotice.remove();
@@ -180,7 +186,7 @@
 
       removeTyping();
 
-      if (!res.ok) {
+      if (!res || !res.ok) {
         if (messages[messages.length - 1] === pendingMessage) {
           messages.pop();
           saveHistory();

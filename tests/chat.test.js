@@ -9,6 +9,25 @@ function response(status, retryAfter = null) {
   };
 }
 
+function handlerResponse() {
+  return {
+    statusCode: 200,
+    headers: {},
+    payload: null,
+    setHeader(name, value) {
+      this.headers[name.toLowerCase()] = value;
+    },
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(payload) {
+      this.payload = payload;
+      return this;
+    },
+  };
+}
+
 test("mantém somente o histórico recente dentro do limite", () => {
   const messages = Array.from({ length: 20 }, (_, index) => ({
     role: index % 2 === 0 ? "user" : "assistant",
@@ -45,4 +64,21 @@ test("prioriza Retry-After e limita a espera máxima", () => {
 test("trata indisponibilidade temporária sem confundir erro definitivo", () => {
   assert.equal(chat.isTemporaryResponse(response(500), "Erro no fluxo"), true);
   assert.equal(chat.isTemporaryResponse(response(400), "Dados inválidos"), false);
+});
+
+test("marca oscilação de rede como recuperável", async (context) => {
+  const originalFetch = global.fetch;
+  context.after(() => { global.fetch = originalFetch; });
+  global.fetch = async () => { throw new Error("conexão interrompida"); };
+
+  const res = handlerResponse();
+  await chat({
+    method: "POST",
+    body: { messages: [{ role: "user", content: "teste" }], sessionId: "sessao" },
+  }, res);
+
+  assert.equal(res.statusCode, 503);
+  assert.equal(res.payload.retryable, true);
+  assert.equal(res.payload.retryAfter, 5);
+  assert.equal(res.headers["retry-after"], "5");
 });

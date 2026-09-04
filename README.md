@@ -41,7 +41,7 @@ Fluxo de uma mensagem:
 
 Para manter o consumo previsível, o aplicativo envia no máximo as 12 mensagens
 anteriores e 6.000 caracteres de histórico. Se o provedor sinalizar um limite
-temporário, a interface respeita o tempo recomendado e tenta novamente uma vez,
+temporário, a interface respeita o tempo recomendado e faz até três novas tentativas,
 sem duplicar a mensagem do usuário no histórico.
 
 ## Rodando localmente
