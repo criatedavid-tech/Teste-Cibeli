@@ -26,6 +26,10 @@
   let defaultPromptCache = null;
   let sending = false;
 
+  function wait(milliseconds) {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
+  }
+
   function showToast(text) {
     toast.textContent = text;
     toast.classList.add("show");
@@ -138,27 +142,50 @@
     sendBtn.disabled = true;
 
     if (messages.length === 0) chatScroll.innerHTML = "";
-    messages.push({ role: "user", content: text });
-    renderBubble("user", text);
+    const pendingMessage = { role: "user", content: text };
+    messages.push(pendingMessage);
+    const pendingRow = renderBubble("user", text);
     saveHistory();
 
     renderTyping();
 
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: getSessionId(),
-          messages: messages.map((m) => ({ role: m.role, content: m.content })),
-        }),
-      });
+      let res;
+      let data;
+      let retryNotice = null;
 
-      const data = await res.json().catch(() => ({}));
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: getSessionId(),
+            messages: messages.map((m) => ({ role: m.role, content: m.content })),
+          }),
+        });
+        data = await res.json().catch(() => ({}));
+
+        if (res.status !== 429 || !data.retryable || attempt > 0) break;
+        const retryAfter = Math.min(60, Math.max(1, Number(data.retryAfter) || 30));
+        removeTyping();
+        retryNotice = renderBubble(
+          "system",
+          `Muitas mensagens em sequência. Tentando novamente em ${retryAfter} segundos...`
+        );
+        await wait(retryAfter * 1000);
+        retryNotice.remove();
+        retryNotice = null;
+        renderTyping();
+      }
 
       removeTyping();
 
       if (!res.ok) {
+        if (messages[messages.length - 1] === pendingMessage) {
+          messages.pop();
+          saveHistory();
+        }
+        pendingRow.remove();
         renderBubble("system", data.error || "Não foi possível falar com a Cibele agora.");
         return;
       }
@@ -169,6 +196,11 @@
       saveHistory();
     } catch (err) {
       removeTyping();
+      if (messages[messages.length - 1] === pendingMessage) {
+        messages.pop();
+        saveHistory();
+      }
+      pendingRow.remove();
       renderBubble("system", "Erro de conexão: " + err.message);
     } finally {
       sending = false;

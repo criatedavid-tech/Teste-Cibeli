@@ -39,6 +39,11 @@ Fluxo de uma mensagem:
 3. n8n roda o AI Agent e devolve `{ output: "..." }`.
 4. `api/chat.js` repassa como `{ reply: "..." }` para o front-end.
 
+Para manter o consumo previsível, o aplicativo envia no máximo as 12 mensagens
+anteriores e 6.000 caracteres de histórico. Se o provedor sinalizar um limite
+temporário, a interface respeita o tempo recomendado e tenta novamente uma vez,
+sem duplicar a mensagem do usuário no histórico.
+
 ## Rodando localmente
 
 ```bash
